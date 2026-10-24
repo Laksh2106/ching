@@ -1,0 +1,2075 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <meta content="uttarakhand_disaster_grid" name="shell-type"/>
+  <title>Uttarakhand Realtime Disaster GIS & 50-Year History — DisplaceOS</title>
+  
+  <!-- Google Fonts: Inter & Material Symbols Outlined -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+
+  <!-- Leaflet CSS for Map Rendering -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <!-- Tailwind CDN with Exact Tokens from DESIGN.md -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "surface": "#f8f9ff",
+            "surface-dim": "#ccdbf3",
+            "surface-bright": "#f8f9ff",
+            "surface-container-lowest": "#ffffff",
+            "surface-container-low": "#eff4ff",
+            "surface-container": "#e6eeff",
+            "surface-container-high": "#dce9ff",
+            "surface-container-highest": "#d5e3fc",
+            "on-surface": "#0d1c2e",
+            "on-surface-variant": "#59413a",
+            "inverse-surface": "#233144",
+            "inverse-on-surface": "#eaf1ff",
+            "outline": "#8d7169",
+            "outline-variant": "#e1bfb6",
+            "surface-tint": "#ad3203",
+            "primary": "#a52e00",
+            "on-primary": "#ffffff",
+            "primary-container": "#c84518",
+            "on-primary-container": "#fff5f3",
+            "inverse-primary": "#ffb59f",
+            "secondary": "#565e74",
+            "on-secondary": "#ffffff",
+            "secondary-container": "#dae2fd",
+            "on-secondary-container": "#5c647a",
+            "tertiary": "#004ecf",
+            "on-tertiary": "#ffffff",
+            "tertiary-container": "#2c68f0",
+            "on-tertiary-container": "#f8f7ff",
+            "error": "#ba1a1a",
+            "on-error": "#ffffff",
+            "error-container": "#ffdad6",
+            "on-error-container": "#93000a",
+            "primary-fixed": "#ffdbd0",
+            "primary-fixed-dim": "#ffb59f",
+            "on-primary-fixed": "#3a0a00",
+            "on-primary-fixed-variant": "#852400",
+            "secondary-fixed": "#dae2fd",
+            "secondary-fixed-dim": "#bec6e0",
+            "on-secondary-fixed": "#131b2e",
+            "on-secondary-fixed-variant": "#3f465c",
+            "tertiary-fixed": "#dbe1ff",
+            "tertiary-fixed-dim": "#b4c5ff",
+            "on-tertiary-fixed": "#00174b",
+            "on-tertiary-fixed-variant": "#003ea8",
+            "background": "#f8f9ff",
+            "on-background": "#0d1c2e",
+            "surface-variant": "#d5e3fc"
+          },
+          fontFamily: {
+            sans: ["Inter", "sans-serif"],
+            mono: ["ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "monospace"]
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.05); }
+    ::-webkit-scrollbar-thumb { background: #565e74; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #233144; }
+
+    /* Tactical radar pulse */
+    @keyframes radar-pulse {
+      0% { transform: scale(0.9); opacity: 0.9; }
+      50% { transform: scale(1.6); opacity: 0.3; }
+      100% { transform: scale(2.4); opacity: 0; }
+    }
+    .animate-radar {
+      animation: radar-pulse 2.2s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+    }
+    
+    /* Crosshair cursor when marking */
+    .crosshair-marking-mode {
+      cursor: crosshair !important;
+    }
+    .crosshair-marking-mode * {
+      cursor: crosshair !important;
+    }
+
+    /* Custom Leaflet Dark & Tactical Map Styling */
+    .leaflet-popup-content-wrapper {
+      background: #0f172a !important;
+      color: #f8fafc !important;
+      border-radius: 8px !important;
+      padding: 0 !important;
+      border: 1px solid #334155;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5) !important;
+    }
+    .leaflet-popup-content {
+      margin: 0 !important;
+      line-height: 1.4 !important;
+    }
+    .leaflet-popup-tip {
+      background: #0f172a !important;
+      border: 1px solid #334155;
+    }
+    .leaflet-container {
+      font-family: 'Inter', sans-serif !important;
+    }
+
+    /* Custom marker icons */
+    .custom-disaster-pin {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    .pulse-ring {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      animation: radar-pulse 2s infinite;
+    }
+  </style>
+</head>
+<body class="bg-surface text-on-surface antialiased font-sans selection:bg-primary selection:text-white flex flex-col min-h-screen">
+
+  <!-- ========================================================================= -->
+  <!-- ==================== TOP FIXED CRISIS HEADER & CONTROLS ================= -->
+  <!-- ========================================================================= -->
+  <header class="sticky top-0 z-40 bg-surface/95 backdrop-blur-md border-b border-surface-container-high shadow-xs">
+    <!-- Red Alert Status Bar -->
+    <div class="bg-error text-on-error px-4 sm:px-6 py-1.5 flex flex-wrap items-center justify-between text-xs font-semibold uppercase tracking-wider">
+      <div class="flex items-center gap-2.5">
+        <span class="relative flex h-2.5 w-2.5">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-white"></span>
+        </span>
+        <span class="font-bold flex items-center gap-1.5">
+          <span>UTTARAKHAND STATE EMERGENCY GIS CELL</span>
+          <span class="hidden sm:inline opacity-75">—</span>
+          <span class="hidden sm:inline bg-error-container text-on-error-container px-2 py-0.2 rounded text-[10px] font-black">ACTIVE MONITORING • HIMALAYAN SECTOR</span>
+        </span>
+      </div>
+
+      <div class="flex items-center gap-4 text-xs">
+        <span class="flex items-center gap-1 text-[11px] font-mono">
+          <span class="material-symbols-outlined text-sm">satellite_alt</span>
+          <span>INSAT-3DR Telemetry: <strong class="font-bold text-white">ONLINE</strong></span>
+        </span>
+        <a href="index.html" class="bg-surface text-on-surface px-2.5 py-0.5 rounded font-bold flex items-center gap-1 hover:bg-surface-container-lowest transition-colors shadow-xs" title="Return to DisplaceOS Dashboard">
+          <span class="material-symbols-outlined text-xs text-primary">arrow_back</span>
+          <span>Main Grid</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Navigation Bar & Tabs -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3">
+      <!-- Title & Branding -->
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-lg bg-primary-container text-on-primary flex items-center justify-center font-black text-lg shadow-sm">
+          UK
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-lg font-black tracking-tight text-on-surface">Uttarakhand Disaster Command & History</h1>
+            <span class="bg-surface-container text-secondary text-[10px] font-mono px-2 py-0.5 rounded font-bold uppercase">Zone V Seismic</span>
+          </div>
+          <p class="text-xs text-secondary">Real-time crowdsourced eye-witness reporting & 50-year catastrophe retrospective (1975–2025)</p>
+        </div>
+      </div>
+
+      <!-- Main Navigation Tabs -->
+      <div class="flex items-center gap-1.5 bg-surface-container-low p-1 rounded-xl border border-surface-container-high self-start md:self-auto">
+        <button id="tab-btn-realtime" onclick="switchView('realtime')" class="tab-button flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all bg-primary-container text-on-primary shadow-xs">
+          <span class="material-symbols-outlined text-base">map</span>
+          <span>Realtime Map & Reports</span>
+          <span class="w-2 h-2 rounded-full bg-error animate-ping"></span>
+        </button>
+
+        <button id="tab-btn-history" onclick="switchView('history')" class="tab-button flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-secondary hover:text-on-surface hover:bg-surface-container transition-all">
+          <span class="material-symbols-outlined text-base">history_edu</span>
+          <span>50-Year History Archive</span>
+          <span class="text-[10px] bg-surface-container-highest text-on-surface px-1.5 py-0.2 rounded font-mono font-bold" id="history-badge-count">18</span>
+        </button>
+
+        <button id="tab-btn-analytics" onclick="switchView('analytics')" class="tab-button flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-secondary hover:text-on-surface hover:bg-surface-container transition-all">
+          <span class="material-symbols-outlined text-base">analytics</span>
+          <span>Risk Analytics</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ========================================================================= -->
+  <!-- ==================== VIEW 1: REALTIME MAP & EYE WITNESS ================= -->
+  <!-- ========================================================================= -->
+  <section id="view-realtime" class="flex-1 flex flex-col max-w-7xl mx-auto w-full px-4 sm:px-6 py-4 gap-4">
+    
+    <!-- Quick Controls & Eyewitness Action Bar -->
+    <div class="bg-surface-container-lowest p-3.5 rounded-xl border border-surface-container-high shadow-xs flex flex-wrap items-center justify-between gap-3">
+      <!-- Left: Realtime Status & Marking Button -->
+      <div class="flex flex-wrap items-center gap-3">
+        <button id="mark-witness-btn" onclick="openEyeWitnessModal()" class="flex items-center gap-2 bg-error hover:bg-primary-container text-on-primary px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-all shadow-sm hover:scale-[1.02]">
+          <span class="material-symbols-outlined text-sm">add_location_alt</span>
+          <span>Mark Affected Area (Eye Witness)</span>
+        </button>
+
+        <button id="click-to-pin-btn" onclick="toggleMapClickMode()" class="flex items-center gap-1.5 bg-surface-container hover:bg-surface-container-high text-on-surface px-3 py-2 rounded-lg font-semibold text-xs transition-colors border border-surface-container-highest">
+          <span class="material-symbols-outlined text-sm text-tertiary">my_location</span>
+          <span id="click-pin-label">Click Map to Mark Spot</span>
+        </button>
+
+        <div class="hidden sm:flex items-center gap-2 pl-2 border-l border-surface-container-high text-xs text-secondary">
+          <span class="flex items-center gap-1">
+            <span class="w-2.5 h-2.5 rounded-full bg-error inline-block"></span>
+            <span>Critical Hazard</span>
+          </span>
+          <span class="flex items-center gap-1">
+            <span class="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span>
+            <span>High Alert</span>
+          </span>
+          <span class="flex items-center gap-1">
+            <span class="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block"></span>
+            <span>Witness Report</span>
+          </span>
+        </div>
+      </div>
+
+      <!-- Right: Basemap Tile Switcher -->
+      <div class="flex items-center gap-1 text-xs">
+        <span class="text-secondary text-[11px] font-semibold mr-1">Basemap:</span>
+        <button onclick="setBaseLayer('satellite')" id="btn-layer-sat" class="px-2.5 py-1 rounded bg-surface-container text-on-surface font-bold text-[11px] border border-surface-container-highest transition-colors hover:bg-surface-container-high">Satellite</button>
+        <button onclick="setBaseLayer('dark')" id="btn-layer-dark" class="px-2.5 py-1 rounded bg-inverse-surface text-inverse-on-surface font-bold text-[11px] border border-transparent transition-colors">Tactical Dark</button>
+        <button onclick="setBaseLayer('topo')" id="btn-layer-topo" class="px-2.5 py-1 rounded bg-surface-container text-secondary text-[11px] border border-surface-container-highest transition-colors hover:bg-surface-container-high">Topo/Terrain</button>
+        <button onclick="resetUttarakhandBounds()" class="p-1 rounded bg-surface-container hover:bg-surface-container-high text-secondary hover:text-on-surface ml-1" title="Reset View to Uttarakhand">
+          <span class="material-symbols-outlined text-base">center_focus_strong</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Active Pin Mode Notification Toast -->
+    <div id="pin-mode-banner" class="hidden bg-tertiary text-on-tertiary px-4 py-2 rounded-lg text-xs font-semibold flex items-center justify-between animate-pulse">
+      <div class="flex items-center gap-2">
+        <span class="material-symbols-outlined text-base">near_me</span>
+        <span>MARKING MODE ACTIVE: Click anywhere on the Uttarakhand map to place a disaster marker and submit your eye-witness report.</span>
+      </div>
+      <button onclick="toggleMapClickMode(false)" class="text-[11px] uppercase underline font-bold">Cancel</button>
+    </div>
+
+    <!-- Map & Side Feed Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1">
+      
+      <!-- MAIN MAP CONTAINER (8 COLS) -->
+      <div class="lg:col-span-8 flex flex-col bg-surface-container-lowest rounded-xl border border-surface-container-high overflow-hidden shadow-xs relative">
+        <!-- Interactive Leaflet Map Div -->
+        <div id="uttarakhand-map" class="w-full h-[540px] z-10"></div>
+
+        <!-- Floating Map Legend Overlay -->
+        <div class="absolute bottom-4 left-4 z-20 bg-inverse-surface/90 backdrop-blur-md text-inverse-on-surface p-3 rounded-lg border border-[#33465e] text-[11px] max-w-xs shadow-lg">
+          <div class="font-bold uppercase tracking-wider text-[10px] text-surface-dim mb-1 flex items-center justify-between">
+            <span>Uttarakhand Realtime GIS</span>
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+          </div>
+          <div class="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px]">
+            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-error border border-white"></span> Cloudburst / Flood</span>
+            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-500 border border-white"></span> Landslide / Rockfall</span>
+            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-cyan-400 border border-white"></span> Glacial Outburst</span>
+            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-purple-500 border border-white"></span> Subsidence / Cracks</span>
+          </div>
+          <div class="mt-2 pt-1.5 border-t border-slate-700 text-[9px] text-slate-400 flex justify-between">
+            <span>Lat: 30.06° N • Lng: 79.01° E</span>
+            <span>13 Districts Monitored</span>
+          </div>
+        </div>
+
+        <!-- Floating Quick District Jump Buttons -->
+        <div class="absolute top-4 right-4 z-20 bg-surface-container-lowest/90 backdrop-blur-md p-1.5 rounded-lg border border-surface-container-high shadow-md flex items-center gap-1 text-[11px]">
+          <span class="text-secondary font-bold text-[10px] px-1">Quick Jump:</span>
+          <button onclick="flyToLocation(30.7352, 79.0669, 13, 'Kedarnath Valley')" class="px-2 py-0.5 rounded bg-surface-container hover:bg-surface-container-high text-on-surface text-[10px] font-medium">Kedarnath</button>
+          <button onclick="flyToLocation(30.5574, 79.5638, 13, 'Joshimath / Tapovan')" class="px-2 py-0.5 rounded bg-surface-container hover:bg-surface-container-high text-on-surface text-[10px] font-medium">Joshimath</button>
+          <button onclick="flyToLocation(30.7268, 78.4354, 12, 'Uttarkashi')" class="px-2 py-0.5 rounded bg-surface-container hover:bg-surface-container-high text-on-surface text-[10px] font-medium">Uttarkashi</button>
+          <button onclick="flyToLocation(30.1084, 78.2916, 12, 'Rishikesh / Foothills')" class="px-2 py-0.5 rounded bg-surface-container hover:bg-surface-container-high text-on-surface text-[10px] font-medium">Rishikesh</button>
+        </div>
+      </div>
+
+      <!-- RIGHT SIDEBAR: REALTIME EYE-WITNESS STREAM (4 COLS) -->
+      <div class="lg:col-span-4 flex flex-col gap-3">
+        
+        <!-- Live Counter Card -->
+        <div class="bg-surface-container-lowest p-3.5 rounded-xl border border-surface-container-high shadow-xs">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-error text-lg">campaign</span>
+              <h2 class="text-xs font-black uppercase tracking-wider text-on-surface">Live Eye-Witness Reports</h2>
+            </div>
+            <span class="text-[10px] bg-error-container text-on-error-container px-2 py-0.5 rounded font-mono font-bold" id="live-reports-count">6 Active</span>
+          </div>
+          <p class="text-xs text-secondary mb-3">Ground-truth incident alerts verified by villagers, trekkers, and field volunteers in Uttarakhand.</p>
+          
+          <!-- Filter Reports By Type -->
+          <div class="flex flex-wrap gap-1 text-[10px]">
+            <button onclick="filterLiveReports('all')" class="live-filter-btn px-2 py-0.5 rounded bg-primary-container text-on-primary font-bold">All</button>
+            <button onclick="filterLiveReports('landslide')" class="live-filter-btn px-2 py-0.5 rounded bg-surface-container text-secondary hover:text-on-surface">Landslides</button>
+            <button onclick="filterLiveReports('flood')" class="live-filter-btn px-2 py-0.5 rounded bg-surface-container text-secondary hover:text-on-surface">Floods</button>
+            <button onclick="filterLiveReports('subsidence')" class="live-filter-btn px-2 py-0.5 rounded bg-surface-container text-secondary hover:text-on-surface">Subsidence</button>
+          </div>
+        </div>
+
+        <!-- Scrollable Feed of Real-time Reports -->
+        <div class="bg-surface-container-lowest p-3 rounded-xl border border-surface-container-high shadow-xs flex-1 flex flex-col">
+          <div class="flex items-center justify-between pb-2 mb-2 border-b border-surface-container-high text-[11px] text-secondary">
+            <span class="font-bold uppercase tracking-wider text-[10px]">Chronological Stream</span>
+            <button onclick="clearCustomWitnessReports()" class="text-error hover:underline text-[10px]" title="Reset custom added markers">Reset My Reports</button>
+          </div>
+
+          <div id="witness-reports-feed" class="flex flex-col gap-2.5 overflow-y-auto max-h-[440px] pr-1">
+            <!-- Dynamic reports inserted by JS -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================================================= -->
+  <!-- ==================== VIEW 2: 50-YEAR DISASTER HISTORY =================== -->
+  <!-- ========================================================================= -->
+  <section id="view-history" class="hidden flex-1 flex flex-col max-w-7xl mx-auto w-full px-4 sm:px-6 py-4 gap-4">
+    
+    <!-- Hero / Archive Header -->
+    <div class="bg-gradient-to-r from-inverse-surface via-slate-800 to-inverse-surface text-inverse-on-surface p-6 rounded-2xl border border-slate-700 shadow-md">
+      <div class="max-w-3xl">
+        <div class="inline-flex items-center gap-2 bg-error/20 text-error-container border border-error/40 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider mb-2">
+          <span class="material-symbols-outlined text-xs">history</span>
+          <span>Himalayan Catastrophe Archive (1975 – 2025)</span>
+        </div>
+        <h2 class="text-2xl font-black tracking-tight text-white mb-2">Uttarakhand 50-Year Disaster Record</h2>
+        <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+          The Central Himalayan state of Uttarakhand sits on active seismic thrusts (MCT & MBT) and fragile glacial valleys. Below is the historical catalog of major cloudbursts, earthquakes, flash floods, landslides, and avalanches over the past 5 decades.
+        </p>
+      </div>
+
+      <!-- Quick 50-Year Stat Strip -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5 pt-4 border-t border-slate-700/60">
+        <div class="bg-slate-900/50 p-2.5 rounded-lg border border-slate-700/40">
+          <span class="text-[10px] text-slate-400 font-bold uppercase block">Documented Major Catastrophes</span>
+          <span class="text-xl font-black text-white font-mono">18 Events</span>
+        </div>
+        <div class="bg-slate-900/50 p-2.5 rounded-lg border border-slate-700/40">
+          <span class="text-[10px] text-slate-400 font-bold uppercase block">Total Lives Lost / Missing</span>
+          <span class="text-xl font-black text-error-container font-mono">~7,300+</span>
+        </div>
+        <div class="bg-slate-900/50 p-2.5 rounded-lg border border-slate-700/40">
+          <span class="text-[10px] text-slate-400 font-bold uppercase block">Highest Impact Valley</span>
+          <span class="text-xl font-black text-amber-300 font-mono">Alaknanda & Mandakini</span>
+        </div>
+        <div class="bg-slate-900/50 p-2.5 rounded-lg border border-slate-700/40">
+          <span class="text-[10px] text-slate-400 font-bold uppercase block">Seismic Activity</span>
+          <span class="text-xl font-black text-cyan-300 font-mono">Zone IV & V (High)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filter & Search Command Bar -->
+    <div class="bg-surface-container-lowest p-4 rounded-xl border border-surface-container-high shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+      <!-- Search Input -->
+      <div class="relative flex-1 max-w-md">
+        <span class="material-symbols-outlined absolute left-3 top-2.5 text-secondary text-sm">search</span>
+        <input type="text" id="history-search-input" oninput="applyHistoryFilters()" placeholder="Search by disaster name, river, district, or year..." class="w-full pl-9 pr-4 py-2 bg-surface-container text-on-surface text-xs rounded-lg border border-surface-container-highest focus:outline-none focus:border-primary transition-colors"/>
+      </div>
+
+      <!-- Filters: Decades & Disaster Types -->
+      <div class="flex flex-wrap items-center gap-2">
+        <!-- Decade Filter Dropdown -->
+        <select id="decade-filter" onchange="applyHistoryFilters()" class="bg-surface-container text-on-surface text-xs font-semibold px-3 py-2 rounded-lg border border-surface-container-highest focus:outline-none">
+          <option value="all">All Decades (1975–2025)</option>
+          <option value="2020s">2020s (Recent)</option>
+          <option value="2010s">2010s (Kedarnath, etc.)</option>
+          <option value="2000s">2000s</option>
+          <option value="1990s">1990s (Chamoli & Uttarkashi Quakes)</option>
+          <option value="1980s">1980s</option>
+          <option value="1970s">1970s</option>
+        </select>
+
+        <!-- Disaster Category Filter -->
+        <select id="type-filter" onchange="applyHistoryFilters()" class="bg-surface-container text-on-surface text-xs font-semibold px-3 py-2 rounded-lg border border-surface-container-highest focus:outline-none">
+          <option value="all">All Disaster Types</option>
+          <option value="flood">Flash Floods & Cloudbursts</option>
+          <option value="earthquake">Earthquakes</option>
+          <option value="landslide">Landslides & Rockfalls</option>
+          <option value="glacial">Glacial Lake & Avalanches</option>
+          <option value="subsidence">Land Subsidence</option>
+          <option value="wildfire">Forest Wildfires</option>
+        </select>
+
+        <!-- Sort Filter -->
+        <select id="sort-filter" onchange="applyHistoryFilters()" class="bg-surface-container text-on-surface text-xs font-semibold px-3 py-2 rounded-lg border border-surface-container-highest focus:outline-none">
+          <option value="newest">Sort: Newest First</option>
+          <option value="oldest">Sort: Oldest First</option>
+          <option value="casualties">Sort: Highest Casualties</option>
+        </select>
+
+        <!-- View Mode: Grid or Timeline -->
+        <div class="flex items-center bg-surface-container p-0.5 rounded-lg border border-surface-container-highest">
+          <button id="view-mode-grid" onclick="setHistoryViewMode('grid')" class="p-1.5 rounded bg-surface-container-lowest text-on-surface shadow-xs" title="Grid Card View">
+            <span class="material-symbols-outlined text-sm">grid_view</span>
+          </button>
+          <button id="view-mode-timeline" onclick="setHistoryViewMode('timeline')" class="p-1.5 rounded text-secondary hover:text-on-surface" title="Timeline View">
+            <span class="material-symbols-outlined text-sm">timeline</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Filters Count & Quick Plot All on Map -->
+    <div class="flex items-center justify-between text-xs text-secondary px-1">
+      <span id="history-results-summary">Showing 18 historical disaster records</span>
+      <button onclick="plotAllHistoryOnMap()" class="text-tertiary hover:text-primary font-bold flex items-center gap-1 hover:underline">
+        <span class="material-symbols-outlined text-xs">travel_explore</span>
+        <span>Plot All 50-Year Incidents on Uttarakhand Map</span>
+      </button>
+    </div>
+
+    <!-- History Container: Grid & Timeline Views -->
+    <div id="history-grid-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <!-- Dynamic historical disaster cards populated by JS -->
+    </div>
+
+    <div id="history-timeline-container" class="hidden flex flex-col gap-6 relative pl-6 border-l-2 border-surface-container-highest my-4">
+      <!-- Dynamic timeline entries populated by JS -->
+    </div>
+  </section>
+
+  <!-- ========================================================================= -->
+  <!-- ==================== VIEW 3: SPATIAL RISK ANALYTICS ===================== -->
+  <!-- ========================================================================= -->
+  <section id="view-analytics" class="hidden flex-1 flex flex-col max-w-7xl mx-auto w-full px-4 sm:px-6 py-4 gap-4">
+    <div class="bg-surface-container-lowest p-6 rounded-2xl border border-surface-container-high shadow-xs">
+      <div class="max-w-2xl mb-6">
+        <h2 class="text-xl font-black text-on-surface">50-Year Geospatial Risk & Vulnerability Analysis</h2>
+        <p class="text-xs text-secondary mt-1">Geological data synthesis of the 13 districts of Uttarakhand under the National Disaster Management Authority (NDMA) classification framework.</p>
+      </div>
+
+      <!-- Analytics Breakdown Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div class="p-4 bg-surface-container-low rounded-xl border border-surface-container-high">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-bold uppercase text-secondary">Disaster Frequency (50 Years)</span>
+            <span class="material-symbols-outlined text-primary text-base">pie_chart</span>
+          </div>
+          <div class="space-y-2 text-xs">
+            <div>
+              <div class="flex justify-between font-semibold mb-0.5">
+                <span>Landslides & Cloudbursts</span>
+                <span>61% (11 events)</span>
+              </div>
+              <div class="w-full bg-surface-container-highest h-2 rounded-full overflow-hidden">
+                <div class="bg-primary h-full w-[61%]"></div>
+              </div>
+            </div>
+            <div>
+              <div class="flex justify-between font-semibold mb-0.5">
+                <span>Glacial Outbursts / Avalanches</span>
+                <span>17% (3 events)</span>
+              </div>
+              <div class="w-full bg-surface-container-highest h-2 rounded-full overflow-hidden">
+                <div class="bg-tertiary h-full w-[17%]"></div>
+              </div>
+            </div>
+            <div>
+              <div class="flex justify-between font-semibold mb-0.5">
+                <span>Major Earthquakes (M≥6.5)</span>
+                <span>11% (2 events)</span>
+              </div>
+              <div class="w-full bg-surface-container-highest h-2 rounded-full overflow-hidden">
+                <div class="bg-error h-full w-[11%]"></div>
+              </div>
+            </div>
+            <div>
+              <div class="flex justify-between font-semibold mb-0.5">
+                <span>Subsidence & Forest Fires</span>
+                <span>11% (2 events)</span>
+              </div>
+              <div class="w-full bg-surface-container-highest h-2 rounded-full overflow-hidden">
+                <div class="bg-amber-500 h-full w-[11%]"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-4 bg-surface-container-low rounded-xl border border-surface-container-high">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-bold uppercase text-secondary">Most Vulnerable River Basins</span>
+            <span class="material-symbols-outlined text-tertiary text-base">water</span>
+          </div>
+          <div class="space-y-2 text-xs">
+            <div class="flex items-center justify-between p-2 bg-surface-container-lowest rounded-lg">
+              <div>
+                <strong class="block font-bold">Alaknanda Basin</strong>
+                <span class="text-[10px] text-secondary">Chamoli & Rudraprayag</span>
+              </div>
+              <span class="text-xs font-mono font-bold text-error">Extreme Risk</span>
+            </div>
+            <div class="flex items-center justify-between p-2 bg-surface-container-lowest rounded-lg">
+              <div>
+                <strong class="block font-bold">Mandakini Basin</strong>
+                <span class="text-[10px] text-secondary">Kedarnath & Okhimath</span>
+              </div>
+              <span class="text-xs font-mono font-bold text-error">Extreme Risk</span>
+            </div>
+            <div class="flex items-center justify-between p-2 bg-surface-container-lowest rounded-lg">
+              <div>
+                <strong class="block font-bold">Bhagirathi Basin</strong>
+                <span class="text-[10px] text-secondary">Uttarkashi & Tehri</span>
+              </div>
+              <span class="text-xs font-mono font-bold text-amber-600">High Risk</span>
+            </div>
+            <div class="flex items-center justify-between p-2 bg-surface-container-lowest rounded-lg">
+              <div>
+                <strong class="block font-bold">Kali / Goriganga Basin</strong>
+                <span class="text-[10px] text-secondary">Pithoragarh / Malpa</span>
+              </div>
+              <span class="text-xs font-mono font-bold text-amber-600">High Risk</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-4 bg-surface-container-low rounded-xl border border-surface-container-high">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-bold uppercase text-secondary">Key Relief Lessons Learned</span>
+            <span class="material-symbols-outlined text-secondary text-base">verified_user</span>
+          </div>
+          <ul class="text-xs space-y-2 text-secondary">
+            <li class="flex items-start gap-1.5">
+              <span class="material-symbols-outlined text-primary text-sm shrink-0">check_circle</span>
+              <span><strong>Early Warning Sirens:</strong> Automated Doppler radars installed in Mukteshwar & Surkanda Devi.</span>
+            </li>
+            <li class="flex items-start gap-1.5">
+              <span class="material-symbols-outlined text-primary text-sm shrink-0">check_circle</span>
+              <span><strong>Helipad Network:</strong> 64 emergency helipads prepared across Char Dham pilgrim routes.</span>
+            </li>
+            <li class="flex items-start gap-1.5">
+              <span class="material-symbols-outlined text-primary text-sm shrink-0">check_circle</span>
+              <span><strong>Crowdsourced Verification:</strong> Eye-witness geo-tagging cuts NDRF response times by 3.4 hours.</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================================================= -->
+  <!-- ==================== EYE WITNESS REPORTING MODAL ======================== -->
+  <!-- ========================================================================= -->
+  <div id="witness-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-surface-container-lowest w-full max-w-xl rounded-2xl border border-surface-container-high shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-150">
+      
+      <!-- Modal Header -->
+      <div class="bg-primary text-on-primary p-4 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <span class="material-symbols-outlined text-xl">add_alert</span>
+          <div>
+            <h3 class="text-sm font-black uppercase tracking-wider">Report Affected Area as Eye Witness</h3>
+            <p class="text-[11px] text-primary-fixed">Your report will immediately broadcast on the live Uttarakhand GIS map.</p>
+          </div>
+        </div>
+        <button onclick="closeEyeWitnessModal()" class="text-on-primary/80 hover:text-white p-1 rounded-md">
+          <span class="material-symbols-outlined text-base">close</span>
+        </button>
+      </div>
+
+      <!-- Modal Body Form -->
+      <form id="witness-form" onsubmit="submitEyeWitnessReport(event)" class="p-5 overflow-y-auto flex-1 flex flex-col gap-4 text-xs">
+        
+        <!-- Coordinates Indicator -->
+        <div class="bg-surface-container p-3 rounded-xl border border-surface-container-highest flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary text-base">pin_drop</span>
+            <div>
+              <span class="text-[10px] text-secondary font-bold uppercase block">Target Pin Coordinates</span>
+              <span id="modal-lat-lng-display" class="font-mono font-bold text-on-surface">30.5574° N, 79.5638° E</span>
+            </div>
+          </div>
+          <button type="button" onclick="useCurrentGeolocation()" class="flex items-center gap-1 bg-surface-container-lowest hover:bg-surface text-secondary hover:text-on-surface px-2.5 py-1 rounded text-[11px] font-semibold border border-surface-container-high transition-colors">
+            <span class="material-symbols-outlined text-xs text-tertiary">my_location</span>
+            <span>Use My GPS</span>
+          </button>
+        </div>
+
+        <!-- District & Landmark -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-bold text-on-surface mb-1">Uttarakhand District *</label>
+            <select id="modal-district" required class="w-full bg-surface-container text-on-surface py-2 px-3 rounded-lg border border-surface-container-highest focus:outline-none focus:border-primary font-medium">
+              <option value="Chamoli">Chamoli (Joshimath, Badrinath)</option>
+              <option value="Rudraprayag">Rudraprayag (Kedarnath, Okhimath)</option>
+              <option value="Uttarkashi">Uttarkashi (Gangotri, Yamunotri)</option>
+              <option value="Pithoragarh">Pithoragarh (Dharchula, Munsiyari)</option>
+              <option value="Tehri Garhwal">Tehri Garhwal (New Tehri, Ghansali)</option>
+              <option value="Pauri Garhwal">Pauri Garhwal (Srinagar, Kotdwar)</option>
+              <option value="Dehradun">Dehradun (Rishikesh, Mussoorie)</option>
+              <option value="Nainital">Nainital (Haldwani, Ramnagar)</option>
+              <option value="Almora">Almora (Ranikhet, Binsar)</option>
+              <option value="Bageshwar">Bageshwar (Kapkot)</option>
+              <option value="Champawat">Champawat (Tanakpur)</option>
+              <option value="Haridwar">Haridwar (Roorkee)</option>
+              <option value="Udham Singh Nagar">Udham Singh Nagar (Rudrapur)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block font-bold text-on-surface mb-1">Specific Landmark / Route *</label>
+            <input type="text" id="modal-landmark" required placeholder="e.g. NH-07 Km 42 near Helang or Village Bhyundar" class="w-full bg-surface-container text-on-surface py-2 px-3 rounded-lg border border-surface-container-highest focus:outline-none focus:border-primary font-medium"/>
+          </div>
+        </div>
+
+        <!-- Disaster Type & Severity -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-bold text-on-surface mb-1">Disaster Incident Type *</label>
+            <select id="modal-disaster-type" required class="w-full bg-surface-container text-on-surface py-2 px-3 rounded-lg border border-surface-container-highest focus:outline-none focus:border-primary font-medium">
+              <option value="landslide">Landslide / Rockfall / Mudflow</option>
+              <option value="flood">Cloudburst & Flash Flood</option>
+              <option value="river">River Bank Overflow / Breach</option>
+              <option value="glacial">Glacial Lake Outburst / Avalanche</option>
+              <option value="earthquake">Earthquake Tremors / Collapse</option>
+              <option value="subsidence">Land Subsidence / Road Cracks</option>
+              <option value="wildfire">Forest Wildfire / Smoke Ingress</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block font-bold text-on-surface mb-1">Severity / Threat Level *</label>
+            <select id="modal-severity" required class="w-full bg-surface-container text-on-surface py-2 px-3 rounded-lg border border-surface-container-highest focus:outline-none focus:border-primary font-bold">
+              <option value="critical" class="text-error">🔴 Code Red (Extreme / Trapped Persons)</option>
+              <option value="severe" class="text-amber-600">🟠 Code Orange (High / Road Blocked)</option>
+              <option value="moderate" class="text-blue-600">🟡 Code Yellow (Moderate / Warning)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Affected Radius & Trapped Count -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label class="font-bold text-on-surface">Affected Hazard Radius</label>
+              <span id="radius-val" class="font-mono font-bold text-primary">1,000 meters</span>
+            </div>
+            <input type="range" id="modal-radius" min="200" max="10000" step="100" value="1000" oninput="document.getElementById('radius-val').textContent = this.value + ' meters'" class="w-full accent-primary cursor-pointer"/>
+          </div>
+
+          <div>
+            <label class="block font-bold text-on-surface mb-1">Estimated Trapped / In Need</label>
+            <input type="number" id="modal-trapped" min="0" value="0" placeholder="Number of people" class="w-full bg-surface-container text-on-surface py-2 px-3 rounded-lg border border-surface-container-highest focus:outline-none focus:border-primary font-mono font-medium"/>
+          </div>
+        </div>
+
+        <!-- Description / Ground Truth -->
+        <div>
+          <label class="block font-bold text-on-surface mb-1">Eye-Witness Ground Observation *</label>
+          <textarea id="modal-description" required rows="3" placeholder="Describe the scene: water level rise, sound of boulders, road condition, bridge status, trapped vehicles..." class="w-full bg-surface-container text-on-surface py-2 px-3 rounded-lg border border-surface-container-highest focus:outline-none focus:border-primary font-medium"></textarea>
+        </div>
+
+        <!-- Witness Identity / Contact -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-bold text-on-surface mb-1">Reporter / Eye Witness Name *</label>
+            <input type="text" id="modal-reporter" required placeholder="e.g. Ramesh Negi (Local Resident / Trekker)" class="w-full bg-surface-container text-on-surface py-2 px-3 rounded-lg border border-surface-container-highest focus:outline-none focus:border-primary font-medium"/>
+          </div>
+
+          <div>
+            <label class="block font-bold text-on-surface mb-1">Contact / Ham Radio / Mobile</label>
+            <input type="text" id="modal-contact" placeholder="e.g. +91 98XXX XXXXX or VHF CH-08" class="w-full bg-surface-container text-on-surface py-2 px-3 rounded-lg border border-surface-container-highest focus:outline-none focus:border-primary font-mono font-medium"/>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="pt-3 border-t border-surface-container-high flex items-center justify-end gap-2">
+          <button type="button" onclick="closeEyeWitnessModal()" class="px-4 py-2 rounded-lg text-secondary hover:text-on-surface font-semibold text-xs transition-colors">
+            Cancel
+          </button>
+          <button type="submit" class="px-5 py-2.5 rounded-lg bg-primary hover:bg-primary-container text-on-primary font-bold text-xs uppercase tracking-wider transition-all shadow-sm flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-sm">send</span>
+            <span>Broadcast Report to Map</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- ==================== HISTORICAL EVENT DETAIL MODAL ====================== -->
+  <!-- ========================================================================= -->
+  <div id="history-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-surface-container-lowest w-full max-w-2xl rounded-2xl border border-surface-container-high shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-150">
+      <div id="history-modal-header" class="bg-slate-900 text-white p-5 flex items-center justify-between border-b border-slate-800">
+        <div>
+          <span id="history-modal-year" class="text-xs font-mono font-black px-2 py-0.5 rounded bg-error text-white uppercase tracking-wider mr-2">2013</span>
+          <span id="history-modal-type" class="text-xs text-slate-300 font-semibold">Cloudburst & Flash Flood</span>
+          <h3 id="history-modal-title" class="text-lg font-black text-white mt-1">Kedarnath Himalayan Tsunami</h3>
+        </div>
+        <button onclick="closeHistoryModal()" class="text-slate-400 hover:text-white p-1 rounded-md">
+          <span class="material-symbols-outlined text-base">close</span>
+        </button>
+      </div>
+
+      <div class="p-6 overflow-y-auto flex-1 flex flex-col gap-4 text-xs">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+          <div class="bg-surface-container p-2.5 rounded-xl border border-surface-container-highest">
+            <span class="text-[10px] text-secondary uppercase block font-bold">Casualties</span>
+            <span id="history-modal-casualties" class="text-sm font-black text-error font-mono">5,700+</span>
+          </div>
+          <div class="bg-surface-container p-2.5 rounded-xl border border-surface-container-highest">
+            <span class="text-[10px] text-secondary uppercase block font-bold">District</span>
+            <span id="history-modal-district" class="text-sm font-black text-on-surface font-mono">Rudraprayag</span>
+          </div>
+          <div class="bg-surface-container p-2.5 rounded-xl border border-surface-container-highest">
+            <span class="text-[10px] text-secondary uppercase block font-bold">River Basin</span>
+            <span id="history-modal-basin" class="text-sm font-black text-tertiary font-mono">Mandakini</span>
+          </div>
+          <div class="bg-surface-container p-2.5 rounded-xl border border-surface-container-highest">
+            <span class="text-[10px] text-secondary uppercase block font-bold">Date</span>
+            <span id="history-modal-date" class="text-sm font-black text-on-surface font-mono">16-17 June 2013</span>
+          </div>
+        </div>
+
+        <div>
+          <h4 class="font-bold text-on-surface uppercase text-[11px] mb-1">What Happened (Chronology & Impact)</h4>
+          <p id="history-modal-summary" class="text-secondary leading-relaxed bg-surface-container-low p-3.5 rounded-xl border border-surface-container-high"></p>
+        </div>
+
+        <div>
+          <h4 class="font-bold text-on-surface uppercase text-[11px] mb-1">Geophysical Trigger Mechanism</h4>
+          <p id="history-modal-trigger" class="text-secondary leading-relaxed bg-surface-container-low p-3.5 rounded-xl border border-surface-container-high"></p>
+        </div>
+
+        <div>
+          <h4 class="font-bold text-on-surface uppercase text-[11px] mb-1">Disaster Management Lessons & Response</h4>
+          <p id="history-modal-lessons" class="text-secondary leading-relaxed bg-surface-container-low p-3.5 rounded-xl border border-surface-container-high"></p>
+        </div>
+
+        <div class="pt-2 border-t border-surface-container-high flex items-center justify-between">
+          <span class="text-[10px] text-secondary">Historical Dossier • Disaster Reduction Archive</span>
+          <button id="history-modal-fly-btn" class="px-4 py-2 rounded-lg bg-primary hover:bg-primary-container text-on-primary font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 transition-colors shadow-xs">
+            <span class="material-symbols-outlined text-sm">explore</span>
+            <span>View Epicenter on Live Map</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Audio Chime Generator using Web Audio API -->
+  <script>
+    function playBeep(type = 'alert') {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        if (type === 'alert') {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(520, ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15);
+          gain.gain.setValueAtTime(0.12, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+          osc.start(ctx.currentTime);
+          osc.stop(ctx.currentTime + 0.25);
+        } else {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(440, ctx.currentTime);
+          gain.gain.setValueAtTime(0.1, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+          osc.start(ctx.currentTime);
+          osc.stop(ctx.currentTime + 0.15);
+        }
+      } catch (e) {
+        console.warn('Audio synthesis disabled', e);
+      }
+    }
+  </script>
+
+  <!-- Main Application Script & Data Store -->
+  <script>
+    // =========================================================================
+    // ==================== 50-YEAR HISTORICAL DISASTER DATASET ===============
+    // =========================================================================
+    const HISTORICAL_DISASTERS = [
+      {
+        id: "uk-1977-tawaghat",
+        year: 1977,
+        decade: "1970s",
+        date: "15 August 1977",
+        title: "Tawaghat Rockslide & Kali River Flood",
+        type: "landslide",
+        typeLabel: "Rockslide & Flash Flood",
+        district: "Pithoragarh",
+        riverBasin: "Kali River",
+        lat: 29.9678,
+        lng: 80.6012,
+        casualties: "44 Lives Lost",
+        casualtiesNum: 44,
+        severity: "severe",
+        summary: "Massive hill failure collapsed onto the confluence of Kali and Dhauliganga rivers at Tawaghat, completely sweeping away border roads, police stations, and residential buildings.",
+        trigger: "Intense monsoon downpour destabilized steep colluvial shale deposits in the Lesser Himalayan zone, triggering instantaneous slope shearing.",
+        lessons: "Emphasized the urgent need for geological slope stability mapping along Indo-Nepal border arterial corridors and seasonal monitoring of Kali river water level spikes."
+      },
+      {
+        id: "uk-1978-bhagirathi",
+        year: 1978,
+        decade: "1970s",
+        date: "06 August 1978",
+        title: "Bhagirathi Kanodiaghad Landslide Dam Outburst",
+        type: "flood",
+        typeLabel: "Landslide Dam Burst",
+        district: "Uttarkashi",
+        riverBasin: "Bhagirathi River",
+        lat: 30.9333,
+        lng: 78.6833,
+        casualties: "100+ Casualties & High Damage",
+        casualtiesNum: 100,
+        severity: "critical",
+        summary: "A colossal landslide dam formed on Kanodiaghad tributary choked the Bhagirathi river for 14 hours. When the artificial dam breached, a 30-foot wall of water rushed downstream through Uttarkashi town, smashing bridges, inundating Maneri, and depositing meters of silt all the way to Rishikesh.",
+        trigger: "Sudden debris torrent dammed Bhagirathi valley; hydrostatic pressure caused rapid catastrophic breach of the sediment barrier.",
+        lessons: "Became a benchmark study in Himalayan river dam bursts. Led to early aerial helicopter surveillance of natural river impoundments in Uttarakhand."
+      },
+      {
+        id: "uk-1986-karmi",
+        year: 1986,
+        decade: "1980s",
+        date: "23 July 1986",
+        title: "Karmi Village Debris Avalanche",
+        type: "landslide",
+        typeLabel: "Debris Avalanche",
+        district: "Bageshwar",
+        riverBasin: "Saryu River Basin",
+        lat: 29.9542,
+        lng: 79.9124,
+        casualties: "38 Lives Lost",
+        casualtiesNum: 38,
+        severity: "severe",
+        summary: "Midnight cloudburst triggered an enormous mudflow down the mountain slopes of Karmi in Bageshwar district, burying 35 houses while residents slept and devastating agricultural terraces.",
+        trigger: "Excessive saturated pore-water pressure along an old tectonic slide zone following 300mm of localized precipitation in 6 hours.",
+        lessons: "Accelerated the creation of community-level monsoon night-watch patrols in Kumaon mountain villages."
+      },
+      {
+        id: "uk-1991-uttarkashi-quake",
+        year: 1991,
+        decade: "1990s",
+        date: "20 October 1991",
+        title: "Uttarkashi Earthquake (Mw 6.8)",
+        type: "earthquake",
+        typeLabel: "Earthquake (Mw 6.8)",
+        district: "Uttarkashi",
+        riverBasin: "Bhagirathi & Yamuna",
+        lat: 30.7268,
+        lng: 78.4354,
+        casualties: "768+ Dead, 5,000+ Injured",
+        casualtiesNum: 768,
+        severity: "critical",
+        summary: "Deadly tectonic rupture along the Main Central Thrust (MCT) with focal depth of 12km. Over 42,000 traditional stone-and-timber houses suffered severe damage or collapse across Uttarkashi, Tehri Garhwal, and Chamoli.",
+        trigger: "Compressional stress buildup along the colliding Indian and Eurasian tectonic plates in the Garhwal seismic gap.",
+        lessons: "Prompted major revisions to the Bureau of Indian Standards (BIS) seismic building codes for Himalayan masonry; demonstrated vulnerability of heavy slate roofing."
+      },
+      {
+        id: "uk-1998-malpa",
+        year: 1998,
+        decade: "1990s",
+        date: "18 August 1998",
+        title: "Malpa Giant Rockfall Catastrophe",
+        type: "landslide",
+        typeLabel: "Massive Rockfall",
+        district: "Pithoragarh",
+        riverBasin: "Kali River Gorge",
+        lat: 29.9167,
+        lng: 80.7500,
+        casualties: "221 Dead (Incl. 60 Pilgrims)",
+        casualtiesNum: 221,
+        severity: "critical",
+        summary: "In the dead of night, a sheer rock cliff of millions of tonnes detached from the heights above Malpa camp, completely obliterating the settlement and killing 221 people including Odissi dancer Protima Bedi and Kailash Mansarovar pilgrims.",
+        trigger: "Deep wedge failure in fractured limestone and quartzite cliffs compounded by continuous monsoon saturation.",
+        lessons: "Prompted the Geological Survey of India (GSI) to establish pilgrimage safety halts outside recognized rockfall chutes; led to satellite phones for pilgrim convoys."
+      },
+      {
+        id: "uk-1998-okhimath",
+        year: 1998,
+        decade: "1990s",
+        date: "11-19 August 1998",
+        title: "Madhyamaheshwar Valley / Okhimath Landslides",
+        type: "landslide",
+        typeLabel: "Valley Slide & River Choke",
+        district: "Rudraprayag",
+        riverBasin: "Madhyamaheshwar River",
+        lat: 30.5167,
+        lng: 79.0833,
+        casualties: "109 Dead, 29 Villages Isolated",
+        casualtiesNum: 109,
+        severity: "critical",
+        summary: "Widespread mass-wasting in the Mandakini and Madhyamaheshwar valleys. Huge landslide dams caused artificial lakes at Bamsun and Byung, which breached sequentially, wiping out hamlets downstream.",
+        trigger: "Successive cloudbursts totaling over 400mm rainfall over saturated, deforested steep slopes.",
+        lessons: "Led to creation of the first dedicated district disaster response cell in Rudraprayag."
+      },
+      {
+        id: "uk-1999-chamoli-quake",
+        year: 1999,
+        decade: "1990s",
+        date: "29 March 1999",
+        title: "Chamoli Earthquake (Mw 6.8)",
+        type: "earthquake",
+        typeLabel: "Earthquake (Mw 6.8)",
+        district: "Chamoli",
+        riverBasin: "Alaknanda Basin",
+        lat: 30.4078,
+        lng: 79.4183,
+        casualties: "103 Dead, 395 Injured",
+        casualtiesNum: 103,
+        severity: "critical",
+        summary: "Striking at 00:35 IST with epicenter near Gopeshwar, the quake destroyed 45,000 dwellings across Chamoli and Rudraprayag. Triggered hundreds of landslides that severed the Rishikesh-Badrinath highway.",
+        trigger: "Slip on low-angle thrust faults under Chamoli along the Alaknanda fault line.",
+        lessons: "Spawned national advocacy for retrofitting rural schools and health centers with earthquake-resistant reinforcement."
+      },
+      {
+        id: "uk-2001-phata",
+        year: 2001,
+        decade: "2000s",
+        date: "16 July 2001",
+        title: "Phata Byung Cloudburst & Debris Flow",
+        type: "flood",
+        typeLabel: "Cloudburst & Debris Torrent",
+        district: "Rudraprayag",
+        riverBasin: "Mandakini River",
+        lat: 30.5744,
+        lng: 79.0347,
+        casualties: "27 Lives Lost",
+        casualtiesNum: 27,
+        severity: "severe",
+        summary: "A cloudburst above Phata triggered an avalanche of boulders and slurry that struck houses along the Kedarnath pilgrim route, destroying vehicles and cutting communications.",
+        trigger: "Orographic cloud convergence creating a localized cloudburst exceeding 100mm/hr in the Mandakini river gorge.",
+        lessons: "Initiated weather warning radio broadcasts for Kedarnath yatra pilgrims."
+      },
+      {
+        id: "uk-2003-varunavat",
+        year: 2003,
+        decade: "2000s",
+        date: "23 September 2003",
+        title: "Varunavat Parvat Slope Collapse, Uttarkashi",
+        type: "landslide",
+        typeLabel: "Major Mountain Slide",
+        district: "Uttarkashi",
+        riverBasin: "Bhagirathi Valley",
+        lat: 30.7300,
+        lng: 78.4410,
+        casualties: "3,000+ Evacuated, Multi-Crore Damage",
+        casualtiesNum: 12,
+        severity: "severe",
+        summary: "Varunavat mountain towering directly over Uttarkashi town suffered structural collapse. Over several weeks, millions of cubic meters of rock cascaded onto Ramlila ground, destroying hotels, bus stands, and houses.",
+        trigger: "Post-earthquake crown fractures from the 1991 quake, worsened by seepage and anthropogenic road-cut destabilization.",
+        lessons: "One of the most extensive slope stabilization engineering projects in Asia; resulted in reinforced slope berms, micro-piling, and shotcreting."
+      },
+      {
+        id: "uk-2010-almora-kumaon",
+        year: 2010,
+        decade: "2010s",
+        date: "18-20 September 2010",
+        title: "Kumaon Deluge & Sumgarh School Disaster",
+        type: "flood",
+        typeLabel: "Cloudburst & Landslides",
+        district: "Almora",
+        riverBasin: "Kosi & Ramganga",
+        lat: 29.6200,
+        lng: 79.6700,
+        casualties: "220+ Dead (Incl. 18 Schoolchildren)",
+        casualtiesNum: 220,
+        severity: "critical",
+        summary: "Continuous monsoon torrential rainfall battered Almora, Nainital, and Haridwar. In Sumgarh village (Kapkot), a landslide slammed into the Saraswati Shishu Mandir school, killing 18 young children inside.",
+        trigger: "Intense western disturbance intersecting active monsoon trough causing 48-hour continuous heavy rainfall across Kumaon.",
+        lessons: "Mandated strict state guidelines prohibiting construction of schools or public shelters directly under steep unstable slopes."
+      },
+      {
+        id: "uk-2012-asi-ganga",
+        year: 2012,
+        decade: "2010s",
+        date: "03 August 2012",
+        title: "Asi Ganga & Uttarkashi Flash Floods",
+        type: "flood",
+        typeLabel: "Flash Flood & Cloudburst",
+        district: "Uttarkashi",
+        riverBasin: "Asi Ganga / Bhagirathi",
+        lat: 30.7600,
+        lng: 78.4700,
+        casualties: "35 Dead / Missing",
+        casualtiesNum: 35,
+        severity: "severe",
+        summary: "Cloudburst in the upper catchments of Asi Ganga unleashed a flash flood that swept away bridges, the Gangori market, power stations, and cut the Gangotri highway for weeks.",
+        trigger: "Rapid catchment discharge after cloudburst funneled down the narrow V-shaped Asi Ganga gorge.",
+        lessons: "Highlighted the vulnerability of riverbed infrastructure and encroachment along Himalayan floodplains."
+      },
+      {
+        id: "uk-2012-ukhimath",
+        year: 2012,
+        decade: "2010s",
+        date: "14 September 2012",
+        title: "Ukhimath Landslide Disaster",
+        type: "landslide",
+        typeLabel: "Cloudburst & Mudslides",
+        district: "Rudraprayag",
+        riverBasin: "Mandakini Valley",
+        lat: 30.5200,
+        lng: 79.0900,
+        casualties: "66 Lives Lost",
+        casualtiesNum: 66,
+        severity: "critical",
+        summary: "Pre-dawn cloudburst in Chunni, Mangoli, and Premnagar villages in Ukhimath block triggered swift debris flows that swallowed dozens of families while sleeping.",
+        trigger: "Water-saturated regolith liquefied on 45-degree slope gradients during torrential cloudburst.",
+        lessons: "Reinforced the critical need for Doppler weather radars and automatic weather stations across Garhwal."
+      },
+      {
+        id: "uk-2013-kedarnath",
+        year: 2013,
+        decade: "2010s",
+        date: "16-17 June 2013",
+        title: "Kedarnath Himalayan Tsunami & Great Deluge",
+        type: "flood",
+        typeLabel: "Multi-Basin Cloudburst & Lake Outburst",
+        district: "Rudraprayag",
+        riverBasin: "Mandakini & Alaknanda",
+        lat: 30.7352,
+        lng: 79.0669,
+        casualties: "5,700+ Dead / Missing",
+        casualtiesNum: 5700,
+        severity: "critical",
+        summary: "The most destructive natural catastrophe in modern Himalayan history. Multi-day cloudbursts triggered the catastrophic moraine breach of Chorabari Glacial Lake above Kedarnath. A gigantic debris and boulder slurry destroyed the town of Kedarnath, Rambara, Gaurikund, and devastated settlements downstream along the Mandakini and Alaknanda rivers.",
+        trigger: "Unprecedented early monsoon collision with an extratropical western disturbance, dumping 375% higher rainfall, accompanied by rapid snowmelt and moraine dam collapse.",
+        lessons: "Prompted Operation Rahat (largest helicopter civilian evacuation in world history, 100,000+ rescued); revolutionized NDRF protocols, disaster mitigation laws, and dynamic yatra biometric registration."
+      },
+      {
+        id: "uk-2016-forest-fires",
+        year: 2016,
+        decade: "2010s",
+        date: "April - May 2016",
+        title: "Great Uttarakhand Forest Wildfires",
+        type: "wildfire",
+        typeLabel: "Forest Wildfires",
+        district: "Chamoli",
+        riverBasin: "Garhwal & Kumaon Reserves",
+        lat: 30.3000,
+        lng: 79.2000,
+        casualties: "7 Casualties, 4,500 Hectares Burned",
+        casualtiesNum: 7,
+        severity: "severe",
+        summary: "Severe pre-monsoon heatwave and drought ignited catastrophic forest fires across 7 districts. Massive blanket of toxic pine smoke enveloped hills, grounded helicopter transport, and threatened Corbett National Park.",
+        trigger: "Prolonged winter drought, heavy pine needle resin carpet (Chir Pine), and unseasonable 40°C heatwave.",
+        lessons: "Spurred the deployment of Indian Air Force Mi-17 helicopters equipped with Bambi buckets for aerial wildfire suppression."
+      },
+      {
+        id: "uk-2021-chamoli-rishi",
+        year: 2021,
+        decade: "2020s",
+        date: "07 February 2021",
+        title: "Chamoli Glacial Rock/Ice Avalanche & Tapovan Flood",
+        type: "glacial",
+        typeLabel: "Glacial Avalanche & Flash Flood",
+        district: "Chamoli",
+        riverBasin: "Rishiganga & Dhauliganga",
+        lat: 30.4850,
+        lng: 79.7320,
+        casualties: "204 Dead / Missing",
+        casualtiesNum: 204,
+        severity: "critical",
+        summary: "A massive wedge of glacier and bedrock (27 million m³) broke off Ronti peak near Nanda Devi and plummeted into the Ronti Gad gorge. The friction liquefied ice into a violent flash flood of mud and boulders that obliterated the Rishiganga hydro project and trapped workers inside the NTPC Tapovan-Vishnugad tunnel.",
+        trigger: "Hanging glacier and permafrost wedge detachment caused by climate warming destabilization at 5,600m altitude.",
+        lessons: "Spawned national high-altitude glacial lake monitoring network (ISRO & DRDO); led to permanent early-warning acoustic flood sirens in Tapovan."
+      },
+      {
+        id: "uk-2022-dokriani-avalanche",
+        year: 2022,
+        decade: "2020s",
+        date: "04 October 2022",
+        title: "Draupadi Ka Danda II Avalanche",
+        type: "glacial",
+        typeLabel: "High Altitude Avalanche",
+        district: "Uttarkashi",
+        riverBasin: "Dokriani Bamak Glacier",
+        lat: 30.8750,
+        lng: 78.8100,
+        casualties: "29 Mountaineers Killed",
+        casualtiesNum: 29,
+        severity: "critical",
+        summary: "An unexpected massive snow slab avalanche struck 42 mountaineering trainees and instructors from the Nehru Institute of Mountaineering (NIM) near the summit ridge of DKD-II at 17,000 feet, trapping them in deep crevasses.",
+        trigger: "Fresh uncompacted post-monsoon heavy snowfall over old hard ice glaze triggered a classic slab release.",
+        lessons: "Reinforced high-altitude transceiver and avalanche beacon mandates for all expeditions in Uttarakhand."
+      },
+      {
+        id: "uk-2023-joshimath-subsidence",
+        year: 2023,
+        decade: "2020s",
+        date: "January 2023",
+        title: "Joshimath Town Land Subsidence Crisis",
+        type: "subsidence",
+        typeLabel: "Land Subsidence & Fissures",
+        district: "Chamoli",
+        riverBasin: "Alaknanda Gorge",
+        lat: 30.5574,
+        lng: 79.5638,
+        casualties: "0 Deaths, 868+ Buildings Cracked",
+        casualtiesNum: 0,
+        severity: "severe",
+        summary: "The sacred gateway town of Joshimath, built on an ancient landslide debris mound, began sinking rapidly. Wide fissures ripped through hotels, temples, army bases, and 860+ houses in Manohar Bagh, Sunil, and Gandhi Nagar, forcing emergency evacuation of thousands.",
+        trigger: "Geological slope creep on unconsolidated morainic deposits, lack of subsurface drainage, unchecked multi-story building weight, and subterranean aquifer puncture.",
+        lessons: "Declared a landslide-subsidence disaster zone; initiated strict carrying capacity caps on Himalayan hill towns and underground sewer overhaul."
+      },
+      {
+        id: "uk-2024-rudraprayag-monsoon",
+        year: 2024,
+        decade: "2020s",
+        date: "31 July 2024",
+        title: "Kedar Valley Cloudburst & Highway Snaps",
+        type: "flood",
+        typeLabel: "Cloudburst & Landslide Surge",
+        district: "Rudraprayag",
+        riverBasin: "Mandakini Basin",
+        lat: 30.6500,
+        lng: 79.0500,
+        casualties: "16 Casualties, 15,000 Pilgrims Evacuated",
+        casualtiesNum: 16,
+        severity: "severe",
+        summary: "Fierce cloudburst ripped through the Kedarnath pedestrian trail between Sonprayag and Gaurikund. Landslides washed away multiple sections of the trek, leaving thousands of pilgrims stranded until the Indian Air Force (IAF) Chinooks and SDRF completed airlifts.",
+        trigger: "Local convective thunderstorm cloudburst along the Mandakini river escarpment.",
+        lessons: "Validated newly installed drone-based rope delivery systems and satellite communication tents for stranded pilgrims."
+      }
+    ];
+
+    // =========================================================================
+    // ==================== REALTIME EYE-WITNESS SEED DATA =====================
+    // =========================================================================
+    const DEFAULT_REALTIME_REPORTS = [
+      {
+        id: "rep-001",
+        lat: 30.5601,
+        lng: 79.5702,
+        district: "Chamoli",
+        landmark: "NH-07 near Helang-Joshimath Bypass",
+        type: "landslide",
+        typeLabel: "Major Mudflow & Boulder Fall",
+        severity: "critical",
+        radius: 1200,
+        trapped: 14,
+        description: "Massive debris sliding continuously down slope. NH-07 totally blocked for 400 meters. 3 supply trucks halted. Slurry pouring into ravine.",
+        reporter: "Mohan Rawat (Local Driver)",
+        contact: "+91 94120 48821",
+        corroborations: 9,
+        timestamp: "12m ago"
+      },
+      {
+        id: "rep-002",
+        lat: 30.7380,
+        lng: 79.0690,
+        district: "Rudraprayag",
+        landmark: "Mandakini Riverbank near Sonprayag Sangam",
+        type: "flood",
+        typeLabel: "Flash Flood & Water Surge",
+        severity: "critical",
+        radius: 2000,
+        trapped: 0,
+        description: "River water level rose by 3 meters in 20 minutes! Roaring sound from upper valley. Riverside walkways submerged. Police evacuating shops.",
+        reporter: "Anil Semwal (Temple Priest)",
+        contact: "VHF CH-04",
+        corroborations: 15,
+        timestamp: "24m ago"
+      },
+      {
+        id: "rep-003",
+        lat: 30.4850,
+        lng: 79.7320,
+        district: "Chamoli",
+        landmark: "Rishiganga - Raini Village Upper Chute",
+        type: "glacial",
+        typeLabel: "Debris Surge Warning",
+        severity: "severe",
+        radius: 3000,
+        trapped: 0,
+        description: "Brown murky water surging down Rishiganga. High turbidity and timber logs spotted floating at speed. Siren sounded at Tapovan barrier.",
+        reporter: "SDRF Outpost #03",
+        contact: "+91 98971 11029",
+        corroborations: 6,
+        timestamp: "45m ago"
+      },
+      {
+        id: "rep-004",
+        lat: 30.7250,
+        lng: 78.4320,
+        district: "Uttarkashi",
+        landmark: "Gangotri Route Km 18 (Netala)",
+        type: "landslide",
+        typeLabel: "Rockfall Hazard",
+        severity: "moderate",
+        radius: 600,
+        trapped: 0,
+        description: "Frequent shooting stones from the upper ridge. Light vehicles passing with caution. JCB bulldozer standing by.",
+        reporter: "Virender Bhatt (BRO Patrol)",
+        contact: "+91 97600 23114",
+        corroborations: 4,
+        timestamp: "1h 10m ago"
+      },
+      {
+        id: "rep-005",
+        lat: 30.5560,
+        lng: 79.5620,
+        district: "Chamoli",
+        landmark: "Joshimath Ward 5 - Manohar Bagh",
+        type: "subsidence",
+        typeLabel: "Widening Fissures",
+        severity: "severe",
+        radius: 800,
+        trapped: 0,
+        description: "New 3-inch gap appeared in courtyard retaining wall following morning drizzle. Seepage water surfacing near lane 3.",
+        reporter: "Smt. Kamala Devi (Resident)",
+        contact: "Manohar Bagh Pradhan",
+        corroborations: 11,
+        timestamp: "2h ago"
+      },
+      {
+        id: "rep-006",
+        lat: 30.4000,
+        lng: 78.7500,
+        district: "Tehri Garhwal",
+        landmark: "Ghansali - Dharamganga Confluence",
+        type: "flood",
+        typeLabel: "Localized Cloudburst Runoff",
+        severity: "critical",
+        radius: 2500,
+        trapped: 6,
+        description: "Intense cloudburst up in Bhilangana catchment. Heavy mud runoff washed away agricultural bridge. Livestock moved to higher knoll.",
+        reporter: "Kundan Panwar (Gram Sevak)",
+        contact: "+91 94115 88920",
+        corroborations: 7,
+        timestamp: "3h ago"
+      }
+    ];
+
+    // =========================================================================
+    // ==================== APP STATE ==========================================
+    // =========================================================================
+    let map = null;
+    let baseLayers = {};
+    let currentBaseLayer = null;
+    let realtimeLayerGroup = null;
+    let historyLayerGroup = null;
+    let clickModeActive = false;
+    let activeView = "realtime";
+    let pendingClickCoords = null;
+    let currentHistoryViewMode = "grid";
+
+    // Load saved witness reports from localStorage or fallback to defaults
+    function getStoredWitnessReports() {
+      try {
+        const stored = localStorage.getItem("uk_witness_reports_v1");
+        if (stored) {
+          return JSON.parse(stored);
+        }
+      } catch (e) {
+        console.error("Failed to load local reports", e);
+      }
+      return DEFAULT_REALTIME_REPORTS;
+    }
+
+    function saveWitnessReports(reports) {
+      try {
+        localStorage.setItem("uk_witness_reports_v1", JSON.stringify(reports));
+      } catch (e) {
+        console.error("Failed to save local reports", e);
+      }
+    }
+
+    let activeWitnessReports = getStoredWitnessReports();
+
+    // =========================================================================
+    // ==================== MAP INITIALIZATION =================================
+    // =========================================================================
+    function initMap() {
+      if (map) return;
+
+      // Center of Uttarakhand [Lat 30.15, Lng 79.20]
+      map = L.map('uttarakhand-map', {
+        center: [30.25, 79.15],
+        zoom: 8,
+        minZoom: 7,
+        maxZoom: 18,
+        zoomControl: true
+      });
+
+      // Basemap Providers
+      baseLayers.satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Tiles &copy; Esri &mdash; Uttarakhand Disaster Relief GIS'
+      });
+
+      baseLayers.dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap &copy; CARTO'
+      });
+
+      baseLayers.topo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+        attribution: 'Map data: &copy; OpenStreetMap, SRTM | Map style: &copy; OpenTopoMap'
+      });
+
+      // Default basemap: Satellite for striking tactical realism
+      baseLayers.satellite.addTo(map);
+      currentBaseLayer = 'satellite';
+
+      // Layer groups for markers
+      realtimeLayerGroup = L.layerGroup().addTo(map);
+      historyLayerGroup = L.layerGroup().addTo(map);
+
+      // Render Uttarakhand boundary highlight (approx bounding polygon)
+      const ukBoundsOutline = [
+        [31.45, 77.85], [31.42, 78.50], [31.40, 79.10], [31.10, 79.60],
+        [30.90, 80.40], [30.40, 81.05], [29.90, 80.60], [29.25, 80.20],
+        [28.80, 80.05], [28.75, 79.50], [28.90, 78.90], [29.50, 78.30],
+        [30.20, 77.70], [30.60, 77.60], [31.15, 77.80]
+      ];
+      L.polygon(ukBoundsOutline, {
+        color: '#ff9900',
+        weight: 1.5,
+        opacity: 0.6,
+        dashArray: '4, 6',
+        fill: false,
+        interactive: false
+      }).addTo(map);
+
+      // Click listener for Eyewitness reporting on map
+      map.on('click', function(e) {
+        if (clickModeActive) {
+          pendingClickCoords = e.latlng;
+          openEyeWitnessModal(e.latlng.lat, e.latlng.lng);
+          toggleMapClickMode(false);
+        }
+      });
+
+      // Populate initial markers
+      renderRealtimeMarkers();
+      renderWitnessReportsFeed();
+    }
+
+    // Basemap switch handler
+    function setBaseLayer(layerKey) {
+      if (!baseLayers[layerKey] || currentBaseLayer === layerKey) return;
+      map.removeLayer(baseLayers[currentBaseLayer]);
+      baseLayers[layerKey].addTo(map);
+      currentBaseLayer = layerKey;
+
+      // Update button highlights
+      document.getElementById('btn-layer-sat').className = layerKey === 'satellite' ? 'px-2.5 py-1 rounded bg-surface-container text-on-surface font-bold text-[11px] border border-surface-container-highest transition-colors' : 'px-2.5 py-1 rounded bg-surface-container text-secondary text-[11px] border border-surface-container-highest transition-colors';
+      document.getElementById('btn-layer-dark').className = layerKey === 'dark' ? 'px-2.5 py-1 rounded bg-inverse-surface text-inverse-on-surface font-bold text-[11px] border border-white/20 transition-colors' : 'px-2.5 py-1 rounded bg-surface-container text-secondary text-[11px] border border-surface-container-highest transition-colors';
+      document.getElementById('btn-layer-topo').className = layerKey === 'topo' ? 'px-2.5 py-1 rounded bg-surface-container text-on-surface font-bold text-[11px] border border-surface-container-highest transition-colors' : 'px-2.5 py-1 rounded bg-surface-container text-secondary text-[11px] border border-surface-container-highest transition-colors';
+    }
+
+    function resetUttarakhandBounds() {
+      if (map) {
+        map.flyTo([30.25, 79.15], 8, { duration: 1.2 });
+      }
+    }
+
+    function flyToLocation(lat, lng, zoom = 13, label = "") {
+      switchView('realtime');
+      if (!map) initMap();
+      setTimeout(() => {
+        map.invalidateSize();
+        map.flyTo([lat, lng], zoom, { duration: 1.5 });
+        playBeep('click');
+      }, 100);
+    }
+
+    // =========================================================================
+    // ==================== REALTIME EYE-WITNESS MARKERS ON MAP ================
+    // =========================================================================
+    function getDisasterColor(type, severity) {
+      if (severity === 'critical') return '#ef4444'; // Red
+      if (severity === 'severe') return '#f97316';   // Orange
+      if (type === 'glacial') return '#06b6d4';      // Cyan
+      if (type === 'subsidence') return '#a855f7';   // Purple
+      return '#3b82f6';                              // Blue
+    }
+
+    function getDisasterIcon(type) {
+      if (type === 'landslide') return 'landslide';
+      if (type === 'flood') return 'flood';
+      if (type === 'river') return 'water';
+      if (type === 'glacial') return 'ac_unit';
+      if (type === 'earthquake') return 'earthquake';
+      if (type === 'subsidence') return 'domain_disabled';
+      if (type === 'wildfire') return 'local_fire_department';
+      return 'warning';
+    }
+
+    function renderRealtimeMarkers() {
+      if (!map || !realtimeLayerGroup) return;
+      realtimeLayerGroup.clearLayers();
+
+      activeWitnessReports.forEach(report => {
+        const color = getDisasterColor(report.type, report.severity);
+        const iconName = getDisasterIcon(report.type);
+
+        // 1. Hazard Affected Perimeter Circle
+        const circle = L.circle([report.lat, report.lng], {
+          color: color,
+          fillColor: color,
+          fillOpacity: 0.18,
+          radius: report.radius || 1000,
+          weight: 1.5,
+          dashArray: '3, 4'
+        }).addTo(realtimeLayerGroup);
+
+        // 2. Custom Pulsing HTML Pin
+        const pinHtml = `
+          <div class="custom-disaster-pin w-8 h-8 rounded-full shadow-lg flex items-center justify-center text-white border-2 border-white cursor-pointer" style="background-color: ${color};">
+            <span class="material-symbols-outlined text-sm font-bold">${iconName}</span>
+            <div class="pulse-ring" style="background-color: ${color}; opacity: 0.4;"></div>
+          </div>
+        `;
+
+        const customIcon = L.divIcon({
+          html: pinHtml,
+          className: '',
+          iconSize: [32, 32],
+          iconAnchor: [16, 16],
+          popupAnchor: [0, -18]
+        });
+
+        // 3. Popup Content
+        const popupContent = `
+          <div class="p-3 w-64 text-slate-100 font-sans">
+            <div class="flex items-center justify-between border-b border-slate-700 pb-1.5 mb-2">
+              <span class="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded ${report.severity === 'critical' ? 'bg-red-600 text-white' : 'bg-amber-600 text-white'}">${report.severity.toUpperCase()}</span>
+              <span class="text-[10px] text-slate-400 font-mono">${report.timestamp || 'Realtime'}</span>
+            </div>
+            <h4 class="font-black text-sm text-white mb-0.5 leading-snug">${report.typeLabel || 'Incident'}</h4>
+            <p class="text-[11px] text-amber-300 font-semibold mb-1 flex items-center gap-1">
+              <span class="material-symbols-outlined text-xs">location_on</span>
+              <span>${report.landmark}, ${report.district}</span>
+            </p>
+            <p class="text-xs text-slate-300 mb-2 leading-relaxed bg-slate-900/60 p-2 rounded">${report.description}</p>
+            
+            <div class="grid grid-cols-2 gap-1 text-[10px] text-slate-300 border-t border-slate-700/60 pt-1.5 mb-2">
+              <div>Radius: <strong class="text-white">${report.radius}m</strong></div>
+              <div>Trapped: <strong class="text-red-400">${report.trapped || 0}</strong></div>
+              <div class="col-span-2 truncate">Witness: <span class="text-slate-400">${report.reporter}</span></div>
+            </div>
+
+            <div class="flex items-center justify-between pt-1">
+              <button onclick="corroborateWitnessReport('${report.id}')" class="px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-bold flex items-center gap-1 transition-colors">
+                <span class="material-symbols-outlined text-xs">thumb_up</span>
+                <span>Confirm (${report.corroborations || 0})</span>
+              </button>
+              <button onclick="flyToLocation(${report.lat}, ${report.lng}, 15)" class="text-slate-400 hover:text-white text-[10px] underline">
+                Zoom In
+              </button>
+            </div>
+          </div>
+        `;
+
+        const marker = L.marker([report.lat, report.lng], { icon: customIcon })
+          .bindPopup(popupContent)
+          .addTo(realtimeLayerGroup);
+      });
+
+      // Update badge
+      const countEl = document.getElementById('live-reports-count');
+      if (countEl) countEl.textContent = `${activeWitnessReports.length} Active`;
+    }
+
+    // =========================================================================
+    // ==================== WITNESS REPORTS SIDEBAR FEED =======================
+    // =========================================================================
+    function renderWitnessReportsFeed(filterType = 'all') {
+      const feedEl = document.getElementById('witness-reports-feed');
+      if (!feedEl) return;
+
+      const filtered = filterType === 'all' 
+        ? activeWitnessReports 
+        : activeWitnessReports.filter(r => r.type === filterType);
+
+      if (filtered.length === 0) {
+        feedEl.innerHTML = `
+          <div class="text-center py-8 text-secondary text-xs">
+            <span class="material-symbols-outlined text-2xl text-secondary mb-1 block">filter_alt_off</span>
+            No witness reports match this filter.
+          </div>
+        `;
+        return;
+      }
+
+      feedEl.innerHTML = filtered.map(item => {
+        const color = getDisasterColor(item.type, item.severity);
+        const iconName = getDisasterIcon(item.type);
+        const isCritical = item.severity === 'critical';
+
+        return `
+          <div class="p-3 rounded-xl bg-surface-container-low hover:bg-surface-container transition-all border border-surface-container-high cursor-pointer shadow-xs group" onclick="flyToLocation(${item.lat}, ${item.lng}, 14)">
+            <div class="flex items-start justify-between gap-2 mb-1">
+              <div class="flex items-center gap-1.5">
+                <span class="w-6 h-6 rounded-md flex items-center justify-center text-white shrink-0 text-xs shadow-xs" style="background-color: ${color};">
+                  <span class="material-symbols-outlined text-xs">${iconName}</span>
+                </span>
+                <div>
+                  <h4 class="text-xs font-bold text-on-surface group-hover:text-primary transition-colors leading-tight">${item.typeLabel}</h4>
+                  <span class="text-[10px] text-secondary font-mono">${item.district} • ${item.landmark}</span>
+                </div>
+              </div>
+              <span class="text-[9px] font-mono px-1.5 py-0.2 rounded font-black ${isCritical ? 'bg-error text-on-error' : 'bg-amber-500 text-white'}">${item.severity.toUpperCase()}</span>
+            </div>
+
+            <p class="text-[11px] text-on-surface-variant line-clamp-2 my-1 leading-snug pl-7.5">${item.description}</p>
+
+            <div class="flex items-center justify-between text-[10px] text-secondary pt-1.5 border-t border-surface-container-high/60 mt-1 pl-1">
+              <span class="flex items-center gap-1">
+                <span class="material-symbols-outlined text-xs text-tertiary">person</span>
+                <span class="truncate max-w-[110px]">${item.reporter}</span>
+              </span>
+              <div class="flex items-center gap-2">
+                <span class="text-secondary font-mono">${item.timestamp}</span>
+                <button onclick="event.stopPropagation(); corroborateWitnessReport('${item.id}')" class="px-2 py-0.5 rounded bg-surface-container-highest hover:bg-tertiary hover:text-white font-bold text-[10px] transition-colors" title="Corroborate as eye witness">
+                  +1 (${item.corroborations || 0})
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function filterLiveReports(type) {
+      document.querySelectorAll('.live-filter-btn').forEach(btn => {
+        btn.className = 'live-filter-btn px-2 py-0.5 rounded bg-surface-container text-secondary hover:text-on-surface';
+      });
+      event.target.className = 'live-filter-btn px-2 py-0.5 rounded bg-primary-container text-on-primary font-bold';
+      renderWitnessReportsFeed(type);
+    }
+
+    function corroborateWitnessReport(reportId) {
+      const target = activeWitnessReports.find(r => r.id === reportId);
+      if (target) {
+        target.corroborations = (target.corroborations || 0) + 1;
+        saveWitnessReports(activeWitnessReports);
+        renderRealtimeMarkers();
+        renderWitnessReportsFeed();
+        playBeep('click');
+      }
+    }
+
+    function clearCustomWitnessReports() {
+      if (confirm('Reset custom eyewitness reports to default verified state?')) {
+        activeWitnessReports = [...DEFAULT_REALTIME_REPORTS];
+        saveWitnessReports(activeWitnessReports);
+        renderRealtimeMarkers();
+        renderWitnessReportsFeed();
+        playBeep('alert');
+      }
+    }
+
+    // =========================================================================
+    // ==================== EYE-WITNESS REPORT MODAL LOGIC =====================
+    // =========================================================================
+    function openEyeWitnessModal(lat = 30.5574, lng = 79.5638) {
+      const modal = document.getElementById('witness-modal');
+      const latLngDisplay = document.getElementById('modal-lat-lng-display');
+      
+      pendingClickCoords = { lat: Number(lat).toFixed(4), lng: Number(lng).toFixed(4) };
+      latLngDisplay.textContent = `${pendingClickCoords.lat}° N, ${pendingClickCoords.lng}° E`;
+
+      modal.classList.remove('hidden');
+      playBeep('click');
+    }
+
+    function closeEyeWitnessModal() {
+      document.getElementById('witness-modal').classList.add('hidden');
+    }
+
+    function toggleMapClickMode(explicitState) {
+      clickModeActive = explicitState !== undefined ? explicitState : !clickModeActive;
+      const banner = document.getElementById('pin-mode-banner');
+      const label = document.getElementById('click-pin-label');
+      const mapEl = document.getElementById('uttarakhand-map');
+
+      if (clickModeActive) {
+        banner.classList.remove('hidden');
+        label.textContent = 'Cancel Map Click';
+        mapEl.classList.add('crosshair-marking-mode');
+        playBeep('alert');
+      } else {
+        banner.classList.add('hidden');
+        label.textContent = 'Click Map to Mark Spot';
+        mapEl.classList.remove('crosshair-marking-mode');
+      }
+    }
+
+    function useCurrentGeolocation() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          pos => {
+            const lat = pos.coords.latitude.toFixed(4);
+            const lng = pos.coords.longitude.toFixed(4);
+            pendingClickCoords = { lat, lng };
+            document.getElementById('modal-lat-lng-display').textContent = `${lat}° N, ${lng}° E (GPS Verified)`;
+            playBeep('click');
+          },
+          err => {
+            alert('Could not acquire device GPS. Using selected map pin.');
+          }
+        );
+      } else {
+        alert('Geolocation not supported by this browser.');
+      }
+    }
+
+    function submitEyeWitnessReport(e) {
+      e.preventDefault();
+
+      const district = document.getElementById('modal-district').value;
+      const landmark = document.getElementById('modal-landmark').value;
+      const type = document.getElementById('modal-disaster-type').value;
+      const severity = document.getElementById('modal-severity').value;
+      const radius = Number(document.getElementById('modal-radius').value) || 1000;
+      const trapped = Number(document.getElementById('modal-trapped').value) || 0;
+      const description = document.getElementById('modal-description').value;
+      const reporter = document.getElementById('modal-reporter').value;
+      const contact = document.getElementById('modal-contact').value;
+
+      const typeLabels = {
+        landslide: "Landslide / Rockfall",
+        flood: "Cloudburst & Flash Flood",
+        river: "River Overflow",
+        glacial: "Glacial Outburst Risk",
+        earthquake: "Earthquake Tremors",
+        subsidence: "Land Subsidence / Fissures",
+        wildfire: "Forest Wildfire"
+      };
+
+      const newReport = {
+        id: "rep-" + Date.now(),
+        lat: Number(pendingClickCoords ? pendingClickCoords.lat : 30.5574),
+        lng: Number(pendingClickCoords ? pendingClickCoords.lng : 79.5638),
+        district: district,
+        landmark: landmark,
+        type: type,
+        typeLabel: typeLabels[type] || "Incident",
+        severity: severity,
+        radius: radius,
+        trapped: trapped,
+        description: description,
+        reporter: reporter,
+        contact: contact,
+        corroborations: 1,
+        timestamp: "Just now"
+      };
+
+      // Add to front of list
+      activeWitnessReports.unshift(newReport);
+      saveWitnessReports(activeWitnessReports);
+
+      // Re-render
+      renderRealtimeMarkers();
+      renderWitnessReportsFeed();
+      closeEyeWitnessModal();
+
+      // Fly to newly marked location on map
+      map.flyTo([newReport.lat, newReport.lng], 14, { duration: 1.2 });
+      playBeep('alert');
+
+      // Clear inputs
+      document.getElementById('modal-landmark').value = "";
+      document.getElementById('modal-description').value = "";
+    }
+
+    // =========================================================================
+    // ==================== 50-YEAR HISTORY ARCHIVE LOGIC ======================
+    // =========================================================================
+    let filteredHistory = [...HISTORICAL_DISASTERS];
+
+    function renderHistoryView() {
+      const summaryEl = document.getElementById('history-results-summary');
+      const badgeCountEl = document.getElementById('history-badge-count');
+      if (summaryEl) summaryEl.textContent = `Showing ${filteredHistory.length} historical disaster records`;
+      if (badgeCountEl) badgeCountEl.textContent = HISTORICAL_DISASTERS.length;
+
+      if (currentHistoryViewMode === 'grid') {
+        renderHistoryGrid();
+      } else {
+        renderHistoryTimeline();
+      }
+    }
+
+    function renderHistoryGrid() {
+      const grid = document.getElementById('history-grid-container');
+      if (!grid) return;
+
+      if (filteredHistory.length === 0) {
+        grid.innerHTML = `
+          <div class="col-span-full py-16 text-center text-secondary text-sm">
+            <span class="material-symbols-outlined text-4xl mb-2 text-secondary block">search_off</span>
+            No historical disasters found matching the chosen search criteria.
+          </div>
+        `;
+        return;
+      }
+
+      grid.innerHTML = filteredHistory.map(item => {
+        const color = getDisasterColor(item.type, item.severity);
+        const iconName = getDisasterIcon(item.type);
+
+        return `
+          <div class="bg-surface-container-lowest rounded-xl border border-surface-container-high p-4 flex flex-col justify-between hover:shadow-md transition-all group">
+            <div>
+              <div class="flex items-center justify-between gap-2 mb-2">
+                <span class="text-xs font-mono font-black px-2 py-0.5 rounded bg-surface-container text-on-surface border border-surface-container-highest">${item.year}</span>
+                <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded text-white" style="background-color: ${color};">
+                  ${item.typeLabel}
+                </span>
+              </div>
+
+              <h3 class="text-sm font-black text-on-surface group-hover:text-primary transition-colors leading-snug mb-1">
+                ${item.title}
+              </h3>
+
+              <div class="flex items-center gap-2 text-[11px] text-secondary font-medium mb-2.5">
+                <span class="flex items-center gap-0.5">
+                  <span class="material-symbols-outlined text-xs text-primary">location_on</span>
+                  <span>${item.district}</span>
+                </span>
+                <span>•</span>
+                <span class="font-mono text-tertiary font-semibold">${item.riverBasin}</span>
+              </div>
+
+              <p class="text-xs text-secondary leading-relaxed line-clamp-3 mb-3 bg-surface-container-low p-2.5 rounded-lg border border-surface-container-high/60">
+                ${item.summary}
+              </p>
+            </div>
+
+            <div>
+              <div class="flex items-center justify-between text-xs py-2 border-t border-surface-container-high font-mono">
+                <span class="text-secondary font-sans text-[11px]">Casualties / Impact:</span>
+                <span class="font-bold text-error">${item.casualties}</span>
+              </div>
+
+              <div class="flex items-center gap-2 pt-2">
+                <button onclick="openHistoryDetail('${item.id}')" class="flex-1 py-1.5 px-3 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-semibold text-xs transition-colors flex items-center justify-center gap-1">
+                  <span class="material-symbols-outlined text-sm">visibility</span>
+                  <span>Full Dossier</span>
+                </button>
+                <button onclick="plotSingleHistoricalEvent('${item.id}')" class="py-1.5 px-3 rounded-lg bg-primary-container hover:bg-primary text-on-primary font-bold text-xs transition-colors flex items-center justify-center gap-1 shadow-xs" title="Fly to map coordinates">
+                  <span class="material-symbols-outlined text-sm">explore</span>
+                  <span>Map</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderHistoryTimeline() {
+      const timeline = document.getElementById('history-timeline-container');
+      if (!timeline) return;
+
+      timeline.innerHTML = filteredHistory.map(item => {
+        const color = getDisasterColor(item.type, item.severity);
+        const iconName = getDisasterIcon(item.type);
+
+        return `
+          <div class="relative pl-6 group">
+            <!-- Timeline Pin Dot -->
+            <div class="absolute -left-[31px] top-1 w-5 h-5 rounded-full border-2 border-surface bg-primary flex items-center justify-center text-white text-[10px] shadow-sm">
+              <span class="w-2 h-2 rounded-full bg-white"></span>
+            </div>
+
+            <div class="bg-surface-container-lowest p-4 rounded-xl border border-surface-container-high shadow-xs">
+              <div class="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-mono font-black text-primary">${item.year}</span>
+                  <span class="text-xs text-secondary font-mono">${item.date}</span>
+                </div>
+                <span class="text-[10px] font-black uppercase px-2 py-0.5 rounded text-white" style="background-color: ${color};">
+                  ${item.typeLabel}
+                </span>
+              </div>
+
+              <h4 class="text-base font-black text-on-surface mb-1">${item.title}</h4>
+              <p class="text-xs text-secondary font-semibold mb-2">${item.district} District • ${item.riverBasin} • <strong class="text-error font-mono">${item.casualties}</strong></p>
+              
+              <p class="text-xs text-on-surface-variant leading-relaxed mb-3">${item.summary}</p>
+
+              <div class="flex items-center gap-3 text-xs">
+                <button onclick="openHistoryDetail('${item.id}')" class="text-primary hover:underline font-bold flex items-center gap-0.5">
+                  <span>Read Scientific Analysis & Lessons</span>
+                  <span class="material-symbols-outlined text-xs">arrow_forward</span>
+                </button>
+                <button onclick="plotSingleHistoricalEvent('${item.id}')" class="text-tertiary hover:underline font-bold flex items-center gap-0.5">
+                  <span class="material-symbols-outlined text-xs">explore</span>
+                  <span>View Epicenter on Map</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function setHistoryViewMode(mode) {
+      currentHistoryViewMode = mode;
+      const gridBtn = document.getElementById('view-mode-grid');
+      const timeBtn = document.getElementById('view-mode-timeline');
+      const gridContainer = document.getElementById('history-grid-container');
+      const timeContainer = document.getElementById('history-timeline-container');
+
+      if (mode === 'grid') {
+        gridBtn.className = 'p-1.5 rounded bg-surface-container-lowest text-on-surface shadow-xs';
+        timeBtn.className = 'p-1.5 rounded text-secondary hover:text-on-surface';
+        gridContainer.classList.remove('hidden');
+        timeContainer.classList.add('hidden');
+      } else {
+        timeBtn.className = 'p-1.5 rounded bg-surface-container-lowest text-on-surface shadow-xs';
+        gridBtn.className = 'p-1.5 rounded text-secondary hover:text-on-surface';
+        timeContainer.classList.remove('hidden');
+        gridContainer.classList.add('hidden');
+      }
+      renderHistoryView();
+    }
+
+    function applyHistoryFilters() {
+      const search = (document.getElementById('history-search-input')?.value || "").toLowerCase().trim();
+      const decade = document.getElementById('decade-filter')?.value || "all";
+      const type = document.getElementById('type-filter')?.value || "all";
+      const sort = document.getElementById('sort-filter')?.value || "newest";
+
+      filteredHistory = HISTORICAL_DISASTERS.filter(item => {
+        // Search query matching
+        const matchSearch = !search || 
+          item.title.toLowerCase().includes(search) ||
+          item.district.toLowerCase().includes(search) ||
+          item.riverBasin.toLowerCase().includes(search) ||
+          item.summary.toLowerCase().includes(search) ||
+          String(item.year).includes(search);
+
+        // Decade filter
+        const matchDecade = decade === "all" || item.decade === decade;
+
+        // Type filter
+        const matchType = type === "all" || item.type === type;
+
+        return matchSearch && matchDecade && matchType;
+      });
+
+      // Sort
+      if (sort === "newest") {
+        filteredHistory.sort((a, b) => b.year - a.year);
+      } else if (sort === "oldest") {
+        filteredHistory.sort((a, b) => a.year - b.year);
+      } else if (sort === "casualties") {
+        filteredHistory.sort((a, b) => (b.casualtiesNum || 0) - (a.casualtiesNum || 0));
+      }
+
+      renderHistoryView();
+    }
+
+    function openHistoryDetail(id) {
+      const item = HISTORICAL_DISASTERS.find(d => d.id === id);
+      if (!item) return;
+
+      document.getElementById('history-modal-year').textContent = item.year;
+      document.getElementById('history-modal-type').textContent = item.typeLabel;
+      document.getElementById('history-modal-title').textContent = item.title;
+      document.getElementById('history-modal-casualties').textContent = item.casualties;
+      document.getElementById('history-modal-district').textContent = item.district;
+      document.getElementById('history-modal-basin').textContent = item.riverBasin;
+      document.getElementById('history-modal-date').textContent = item.date;
+
+      document.getElementById('history-modal-summary').textContent = item.summary;
+      document.getElementById('history-modal-trigger').textContent = item.trigger;
+      document.getElementById('history-modal-lessons').textContent = item.lessons;
+
+      const flyBtn = document.getElementById('history-modal-fly-btn');
+      flyBtn.onclick = () => {
+        closeHistoryModal();
+        plotSingleHistoricalEvent(item.id);
+      };
+
+      document.getElementById('history-modal').classList.remove('hidden');
+      playBeep('click');
+    }
+
+    function closeHistoryModal() {
+      document.getElementById('history-modal').classList.add('hidden');
+    }
+
+    // Plot a specific historical event on the live map and fly to it
+    function plotSingleHistoricalEvent(id) {
+      const item = HISTORICAL_DISASTERS.find(d => d.id === id);
+      if (!item) return;
+
+      switchView('realtime');
+      if (!map) initMap();
+
+      setTimeout(() => {
+        map.invalidateSize();
+        map.flyTo([item.lat, item.lng], 13, { duration: 1.5 });
+
+        // Add prominent historical marker
+        if (historyLayerGroup) historyLayerGroup.clearLayers();
+
+        const color = getDisasterColor(item.type, item.severity);
+        const pinHtml = `
+          <div class="custom-disaster-pin w-10 h-10 rounded-full shadow-2xl flex items-center justify-center text-white border-2 border-white" style="background-color: ${color};">
+            <span class="material-symbols-outlined text-base">history_edu</span>
+            <div class="pulse-ring" style="background-color: ${color}; opacity: 0.7;"></div>
+          </div>
+        `;
+
+        const icon = L.divIcon({
+          html: pinHtml,
+          className: '',
+          iconSize: [40, 40],
+          iconAnchor: [20, 20],
+          popupAnchor: [0, -22]
+        });
+
+        const popup = `
+          <div class="p-3 w-64 text-slate-100">
+            <div class="flex items-center justify-between border-b border-slate-700 pb-1 mb-1.5">
+              <span class="text-xs font-mono font-bold text-amber-300">HISTORICAL EVENT (${item.year})</span>
+              <span class="text-[10px] text-slate-400 font-mono">${item.district}</span>
+            </div>
+            <h4 class="font-black text-sm text-white mb-1">${item.title}</h4>
+            <p class="text-xs text-slate-300 mb-2 leading-snug">${item.summary}</p>
+            <div class="bg-slate-900 p-1.5 rounded text-[11px] text-red-400 font-mono font-bold mb-2">Casualties: ${item.casualties}</div>
+            <button onclick="openHistoryDetail('${item.id}')" class="w-full py-1 rounded bg-primary text-white text-[11px] font-bold">
+              Read Scientific Dossier
+            </button>
+          </div>
+        `;
+
+        L.marker([item.lat, item.lng], { icon: icon })
+          .bindPopup(popup)
+          .addTo(historyLayerGroup)
+          .openPopup();
+
+        playBeep('alert');
+      }, 100);
+    }
+
+    // Plot all 50-year historical events across Uttarakhand
+    function plotAllHistoryOnMap() {
+      switchView('realtime');
+      if (!map) initMap();
+
+      setTimeout(() => {
+        map.invalidateSize();
+        if (historyLayerGroup) historyLayerGroup.clearLayers();
+
+        HISTORICAL_DISASTERS.forEach(item => {
+          const color = getDisasterColor(item.type, item.severity);
+          const pinHtml = `
+            <div class="custom-disaster-pin w-6 h-6 rounded-full shadow-md flex items-center justify-center text-white border border-white opacity-90 hover:opacity-100 hover:scale-125 transition-transform" style="background-color: ${color};">
+              <span class="text-[9px] font-mono font-bold">${String(item.year).slice(2)}</span>
+            </div>
+          `;
+
+          const icon = L.divIcon({
+            html: pinHtml,
+            className: '',
+            iconSize: [24, 24],
+            iconAnchor: [12, 12],
+            popupAnchor: [0, -14]
+          });
+
+          const popup = `
+            <div class="p-3 w-60 text-slate-100">
+              <div class="text-[10px] text-amber-400 font-mono font-bold">${item.year} • ${item.typeLabel}</div>
+              <h4 class="font-bold text-xs text-white my-0.5">${item.title}</h4>
+              <p class="text-[11px] text-slate-300 mb-1.5 line-clamp-2">${item.summary}</p>
+              <button onclick="openHistoryDetail('${item.id}')" class="text-xs text-cyan-400 underline font-bold">
+                Open Full Event Details
+              </button>
+            </div>
+          `;
+
+          L.marker([item.lat, item.lng], { icon: icon })
+            .bindPopup(popup)
+            .addTo(historyLayerGroup);
+        });
+
+        resetUttarakhandBounds();
+        playBeep('click');
+      }, 150);
+    }
+
+    // =========================================================================
+    // ==================== VIEW SWITCHER (TABS) ===============================
+    // =========================================================================
+    function switchView(viewName) {
+      activeView = viewName;
+
+      // Update Tab Buttons
+      const tabRealtime = document.getElementById('tab-btn-realtime');
+      const tabHistory = document.getElementById('tab-btn-history');
+      const tabAnalytics = document.getElementById('tab-btn-analytics');
+
+      const vRealtime = document.getElementById('view-realtime');
+      const vHistory = document.getElementById('view-history');
+      const vAnalytics = document.getElementById('view-analytics');
+
+      // Reset styles
+      [tabRealtime, tabHistory, tabAnalytics].forEach(btn => {
+        btn.className = 'tab-button flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-secondary hover:text-on-surface hover:bg-surface-container transition-all';
+      });
+
+      // Hide all views
+      vRealtime.classList.add('hidden');
+      vHistory.classList.add('hidden');
+      vAnalytics.classList.add('hidden');
+
+      if (viewName === 'realtime') {
+        tabRealtime.className = 'tab-button flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all bg-primary-container text-on-primary shadow-xs';
+        vRealtime.classList.remove('hidden');
+        if (map) {
+          setTimeout(() => map.invalidateSize(), 100);
+        } else {
+          initMap();
+        }
+      } else if (viewName === 'history') {
+        tabHistory.className = 'tab-button flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all bg-primary-container text-on-primary shadow-xs';
+        vHistory.classList.remove('hidden');
+        renderHistoryView();
+      } else if (viewName === 'analytics') {
+        tabAnalytics.className = 'tab-button flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all bg-primary-container text-on-primary shadow-xs';
+        vAnalytics.classList.remove('hidden');
+      }
+
+      playBeep('click');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // =========================================================================
+    // ==================== ONLOAD BOOTSTRAP ===================================
+    // =========================================================================
+    window.addEventListener('DOMContentLoaded', () => {
+      initMap();
+      renderHistoryView();
+    });
+  </script>
+</body>
+</html>
